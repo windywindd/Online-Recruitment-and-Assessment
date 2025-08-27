@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const axiosInstance = axios.create({
   //baseURL: 'http://localhost:5001', // local
-  baseURL: 'http://3.106.124.52:5001', // live
+  baseURL: 'http://3.107.86.184:5001', // live
   headers: { 'Content-Type': 'application/json' },
 });
 axiosInstance.interceptors.request.use(
@@ -19,3 +19,4 @@ axiosInstance.interceptors.request.use(
 
 export default axiosInstance;
 // 16.176.224.120
+// 3.106.124.52npm
