@@ -9,7 +9,8 @@ const JobList = () => {
   const [editingJobId, setEditingJobId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
-
+  const [applicants, setApplicants] = useState({});
+  const [loadingApplicants, setLoadingApplicants] = useState(null);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -23,23 +24,35 @@ const JobList = () => {
     fetchJobs();
   }, []);
 
+  // Apply for a job
   const handleApply = async (jobId) => {
     if (user.role !== 'employee') return;
 
     setLoadingJobId(jobId);
     try {
-      await axiosInstance.post(`/api/jobs/${jobId}/apply`, {}, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
+      await axiosInstance.post(
+        `/api/jobs/${jobId}/apply`,
+        {},
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      // update local state to reflect application
+      setJobs(jobs.map(job =>
+        job._id === jobId
+          ? { ...job, applications: [...(job.applications || []), { applicant: { _id: user.id, name: user.name, email: user.email } }] }
+          : job
+      ));
+
       alert('Applied successfully!');
     } catch (error) {
       console.error(error);
-      alert('Failed to apply.');
+      alert(error.response?.data?.message || 'Failed to apply.');
     } finally {
       setLoadingJobId(null);
     }
   };
 
+  // Delete a job
   const handleDelete = async (jobId) => {
     if (user.role !== 'employer') return;
     if (!window.confirm('Are you sure you want to delete this job?')) return;
@@ -58,6 +71,8 @@ const JobList = () => {
       setLoadingJobId(null);
     }
   };
+
+  // Edit job
   const handleEditClick = (job) => {
     setEditingJobId(job._id);
     setEditingTitle(job.title);
@@ -65,15 +80,13 @@ const JobList = () => {
   };
   const handleSaveEdit = async (jobId) => {
     try {
-      await axiosInstance.put(`/api/jobs/${jobId}`, {
-        title: editingTitle,
-        description: editingDescription,
-      }, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
+      await axiosInstance.put(
+        `/api/jobs/${jobId}`,
+        { title: editingTitle, description: editingDescription },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
 
-      // Update job in local state
-      setJobs(jobs.map(job => 
+      setJobs(jobs.map(job =>
         job._id === jobId ? { ...job, title: editingTitle, description: editingDescription } : job
       ));
 
@@ -84,84 +97,131 @@ const JobList = () => {
     }
   };
 
-
-  
+  // View applicants (employer only)
+  const handleViewApplicants = async (jobId) => {
+    setLoadingApplicants(jobId);
+    try {
+      const { data } = await axiosInstance.get(`/api/jobs/${jobId}/applicants`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      setApplicants(prev => ({ ...prev, [jobId]: data }));
+    } catch (error) {
+      console.error(error);
+      alert('Failed to fetch applicants.');
+    } finally {
+      setLoadingApplicants(null);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto mt-10 bg-gray-100">
       <h2 className="text-2xl font-bold p-2 mb-4">Available Jobs</h2>
       {jobs.length === 0 && <p>No jobs available</p>}
       <ul>
-        {jobs.map((job) => (
-          <li key={job._id} className="border p-4 mb-4 rounded shadow">
-            {editingJobId === job._id ? (
-              <>
-                <input
-                  type="text"
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
-                  className="w-full mb-2 p-2 border rounded"
-                />
-                <textarea
-                  value={editingDescription}
-                  onChange={(e) => setEditingDescription(e.target.value)}
-                  className="w-full mb-2 p-2 border rounded"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleSaveEdit(job._id)}
-                    className="bg-green-600 text-white p-2 rounded"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingJobId(null)}
-                    className="bg-gray-400 text-white p-2 rounded"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-xl font-semibold">{job.title}</h3>
-                <p>{job.description}</p>
-                <small>Posted by: {job.employer?.name || 'Unknown'}</small>
+        {jobs.map((job) => {
+          const alreadyApplied =
+            user.role === 'employee' &&
+            job.applications?.some((app) => app.applicant?._id === user.id);
 
-                <div className="mt-2 flex gap-2">
-                  {user.role === 'employee' && (
+          return (
+            <li key={job._id} className="border p-4 mb-4 rounded shadow">
+              {editingJobId === job._id ? (
+                <>
+                  <input
+                    type="text"
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    className="w-full mb-2 p-2 border rounded"
+                  />
+                  <textarea
+                    value={editingDescription}
+                    onChange={(e) => setEditingDescription(e.target.value)}
+                    className="w-full mb-2 p-2 border rounded"
+                  />
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => handleApply(job._id)}
-                      disabled={loadingJobId === job._id}
+                      onClick={() => handleSaveEdit(job._id)}
                       className="bg-green-600 text-white p-2 rounded"
                     >
-                      {loadingJobId === job._id ? 'Applying...' : 'Apply'}
+                      Save
                     </button>
-                  )}
+                    <button
+                      onClick={() => setEditingJobId(null)}
+                      className="bg-gray-400 text-white p-2 rounded"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-semibold">{job.title}</h3>
+                  <p>{job.description}</p>
+                  <small>Posted by: {job.employer?.name || 'Unknown'}</small>
 
-                  {user.role === 'employer' && job.employer?._id === user.id && (
-                    <>
+                  <div className="mt-2 flex gap-2">
+                    {/* Employee apply */}
+                    {user.role === 'employee' && (
                       <button
-                        onClick={() => handleDelete(job._id)}
-                        disabled={loadingJobId === job._id}
-                        className="bg-red-600 text-white p-2 rounded"
+                        onClick={() => handleApply(job._id)}
+                        disabled={loadingJobId === job._id || alreadyApplied}
+                        className={`p-2 rounded ${
+                          alreadyApplied ? 'bg-gray-400' : 'bg-green-600 text-white'
+                        }`}
                       >
-                        {loadingJobId === job._id ? 'Deleting...' : 'Delete'}
+                        {alreadyApplied
+                          ? 'Already Applied'
+                          : loadingJobId === job._id
+                          ? 'Applying...'
+                          : 'Apply'}
                       </button>
-                      <button
-                        onClick={() => handleEditClick(job)}
-                        className="bg-yellow-500 text-white p-2 rounded"
-                      >
-                        Edit
-                      </button>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </li>
-        ))}
+                    )}
 
+                    {/* Employer actions */}
+                    {user.role === 'employer' && job.employer?._id === user.id && (
+                      <>
+                        <button
+                          onClick={() => handleDelete(job._id)}
+                          disabled={loadingJobId === job._id}
+                          className="bg-red-600 text-white p-2 rounded"
+                        >
+                          {loadingJobId === job._id ? 'Deleting...' : 'Delete'}
+                        </button>
+                        <button
+                          onClick={() => handleEditClick(job)}
+                          className="bg-yellow-500 text-white p-2 rounded"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleViewApplicants(job._id)}
+                          className="bg-blue-500 text-white p-2 rounded"
+                        >
+                          {loadingApplicants === job._id ? 'Loading...' : 'View Applicants'}
+                        </button>
+
+                        {/* Show applicants */}
+                        {applicants[job._id] && (
+                          <ul className="mt-2 p-2 border rounded bg-white">
+                            {applicants[job._id].length === 0 ? (
+                              <li>No applicants yet</li>
+                            ) : (
+                              applicants[job._id].map((app, idx) => (
+                                <li key={idx}>
+                                  {app.applicant?.name} - {app.applicant?.email}
+                                </li>
+                              ))
+                            )}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

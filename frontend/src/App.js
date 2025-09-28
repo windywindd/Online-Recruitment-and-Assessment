@@ -7,6 +7,7 @@ import Tasks from './pages/Tasks';
 import JobPosting from './pages/JobPosting';
 import JobList from './pages/JobList';
 import Home from './pages/Home';
+// import JobApplicants from './pages/JobApplicants';
 function App() {
   return (
     <Router>
@@ -19,6 +20,7 @@ function App() {
         <Route path="/post-job" element={<JobPosting />} />
         <Route path="/jobs" element={<JobList />} />
         <Route path="/" element={<Home />} />
+        {/* <Route path="/jobs/:jobId/applicants" element={<JobApplicants />} /> */}
       </Routes>
     </Router>
   );
