@@ -21,6 +21,15 @@ router.post('/:id/apply', protect, jobController.applyJob);
 // Get applicants for a job (employer only)
 router.get('/:id/applicants', protect, jobController.getApplicants);
 
+// PUT /api/jobs/:jobId/applicants/:applicantId/interview
+router.put(
+  '/:jobId/applicants/:applicantId/interview',
+  protect,
+  jobController.scheduleInterview
+);
+
+// routes/jobRoutes.js
+router.get('/my-interviews', protect, jobController.getMyInterviews);
 
 
 module.exports = router;

@@ -7,6 +7,8 @@ import Tasks from './pages/Tasks';
 import JobPosting from './pages/JobPosting';
 import JobList from './pages/JobList';
 import Home from './pages/Home';
+import ApplicantsPage from "./pages/ApplicantsPage";
+import ApplicantView from "./pages/ApplicantView";
 // import JobApplicants from './pages/JobApplicants';
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
         <Route path="/post-job" element={<JobPosting />} />
         <Route path="/jobs" element={<JobList />} />
         <Route path="/" element={<Home />} />
+        <Route path="/jobs/:jobId/applicants" element={<ApplicantsPage />} />
+        <Route path="/my-interviews" element={<ApplicantView />} />
         {/* <Route path="/jobs/:jobId/applicants" element={<JobApplicants />} /> */}
       </Routes>
     </Router>

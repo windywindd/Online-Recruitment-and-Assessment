@@ -28,7 +28,7 @@ exports.getJobs = async (req, res) => {
   try {
     const jobs = await Job.find()
       .populate('employer', 'name email role')
-      .populate('applications.applicant', 'name email'); // include applicants if needed
+      .populate('applications.applicant', 'name email'); 
     res.json(jobs);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -89,12 +89,10 @@ exports.applyJob = async (req, res) => {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    // prevent applying to own job
     if (job.employer.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: 'Employers cannot apply to their own job.' });
     }
 
-    // check duplicate application
     const alreadyApplied = job.applications.some(
       (app) => app.applicant.toString() === req.user._id.toString()
     );
@@ -118,7 +116,6 @@ exports.getApplicants = async (req, res) => {
     const job = await Job.findById(req.params.id).populate('applications.applicant', 'name email');
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    // only employer who posted the job can see applicants
     if (job.employer.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to view applicants' });
     }
@@ -127,5 +124,64 @@ exports.getApplicants = async (req, res) => {
   } catch (error) {
     console.error('Get applicants error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// SCHEDULE INTERVIEW (Employer schedules applicant interview)
+exports.scheduleInterview = async (req, res) => {
+  try {
+    const { jobId, applicantId } = req.params;
+    const { interviewDate, interviewLocation, interviewDescription } = req.body;
+
+    const job = await Job.findById(jobId);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    const application = job.applications.find(
+      (app) => app.applicant.toString() === applicantId
+    );
+    if (!application) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    application.status = "interview";
+    application.interviewDate = interviewDate;
+    application.interviewLocation = interviewLocation;
+    application.interviewDescription = interviewDescription;
+
+    await job.save();
+
+    res.json({ message: "Interview scheduled", application });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to schedule interview" });
+  }
+};
+
+exports.getMyInterviews = async (req, res) => {
+  try {
+    if (req.user.role !== "employee") {
+      return res.status(403).json({ message: "Only employees can view their interviews" });
+    }
+
+    const jobs = await Job.find({ "applications.applicant": req.user.id })
+      .populate("employer", "name email");
+
+    const interviews = jobs.flatMap(job =>
+      job.applications
+        .filter(app => String(app.applicant) === String(req.user.id) && app.interviewDate)
+        .map(app => ({
+          jobTitle: job.title,
+          employer: job.employer?.name,
+          employerEmail: job.employer?.email,
+          interviewDate: app.interviewDate,
+          interviewLocation: app.interviewLocation,
+          interviewDescription: app.interviewDescription,
+        }))
+    );
+
+    res.json(interviews);
+  } catch (error) {
+    console.error("Get interviews error:", error);
+    res.status(500).json({ message: "Failed to fetch interviews" });
   }
 };
