@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const JobList = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loadingJobId, setLoadingJobId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
-  const [applicants, setApplicants] = useState({});
-  const [loadingApplicants, setLoadingApplicants] = useState(null);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -97,22 +97,6 @@ const JobList = () => {
     }
   };
 
-  // View applicants (employer only)
-  const handleViewApplicants = async (jobId) => {
-    setLoadingApplicants(jobId);
-    try {
-      const { data } = await axiosInstance.get(`/api/jobs/${jobId}/applicants`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      setApplicants(prev => ({ ...prev, [jobId]: data }));
-    } catch (error) {
-      console.error(error);
-      alert('Failed to fetch applicants.');
-    } finally {
-      setLoadingApplicants(null);
-    }
-  };
-
   return (
     <div className="max-w-2xl mx-auto mt-10 bg-gray-100">
       <h2 className="text-2xl font-bold p-2 mb-4">Available Jobs</h2>
@@ -160,21 +144,32 @@ const JobList = () => {
                   <small>Posted by: {job.employer?.name || 'Unknown'}</small>
 
                   <div className="mt-2 flex gap-2">
-                    {/* Employee apply */}
+                    {/* Employee actions */}
                     {user.role === 'employee' && (
-                      <button
-                        onClick={() => handleApply(job._id)}
-                        disabled={loadingJobId === job._id || alreadyApplied}
-                        className={`p-2 rounded ${
-                          alreadyApplied ? 'bg-gray-400' : 'bg-green-600 text-white'
-                        }`}
-                      >
-                        {alreadyApplied
-                          ? 'Already Applied'
-                          : loadingJobId === job._id
-                          ? 'Applying...'
-                          : 'Apply'}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleApply(job._id)}
+                          disabled={loadingJobId === job._id || alreadyApplied}
+                          className={`p-2 rounded ${
+                            alreadyApplied ? 'bg-gray-400' : 'bg-green-600 text-white'
+                          }`}
+                        >
+                          {alreadyApplied
+                            ? 'Already Applied'
+                            : loadingJobId === job._id
+                            ? 'Applying...'
+                            : 'Apply'}
+                        </button>
+
+                        {alreadyApplied && (
+                          <button
+                            onClick={() => navigate(`/my-interviews`)}
+                            className="bg-purple-600 text-white p-2 rounded"
+                          >
+                            View Interview Details
+                          </button>
+                        )}
+                      </>
                     )}
 
                     {/* Employer actions */}
@@ -194,26 +189,11 @@ const JobList = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleViewApplicants(job._id)}
+                          onClick={() => navigate(`/jobs/${job._id}/applicants`)}
                           className="bg-blue-500 text-white p-2 rounded"
                         >
-                          {loadingApplicants === job._id ? 'Loading...' : 'View Applicants'}
+                          View Applicants
                         </button>
-
-                        {/* Show applicants */}
-                        {applicants[job._id] && (
-                          <ul className="mt-2 p-2 border rounded bg-white">
-                            {applicants[job._id].length === 0 ? (
-                              <li>No applicants yet</li>
-                            ) : (
-                              applicants[job._id].map((app, idx) => (
-                                <li key={idx}>
-                                  {app.applicant?.name} - {app.applicant?.email}
-                                </li>
-                              ))
-                            )}
-                          </ul>
-                        )}
                       </>
                     )}
                   </div>
