@@ -7,6 +7,9 @@ const connectDB = require('../config/db');
 const mongoose = require('mongoose');
 const sinon = require('sinon');
 const Task = require('../models/Task');
+const Job = require('../models/jobModel');
+const { applyJob } = require('../controllers/jobController');
+
 const { updateTask,getTasks,addTask,deleteTask } = require('../controllers/taskController');
 const { expect } = chai;
 
@@ -296,6 +299,70 @@ describe('DeleteTask Function Test', () => {
 
     // Restore stubbed methods
     findByIdStub.restore();
+  });
+
+});
+
+describe('ApplyJob Function Test', () => {
+
+  it('should allow an employee to apply for a job', async () => {
+    const jobId = new mongoose.Types.ObjectId();
+    const employerId = new mongoose.Types.ObjectId();
+    const employeeId = new mongoose.Types.ObjectId();
+
+    const job = {
+      _id: jobId,
+      employer: employerId,
+      applications: [],
+      save: sinon.stub().resolvesThis()
+    };
+
+    const findByIdStub = sinon.stub(Job, 'findById').resolves(job);
+
+    const req = { params: { id: jobId }, user: { role: 'employee', _id: employeeId } };
+    const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+
+    await applyJob(req, res);
+
+    expect(findByIdStub.calledOnceWith(jobId)).to.be.true;
+    expect(job.applications.length).to.equal(1);
+    expect(res.json.calledWith({ message: 'Applied successfully!' })).to.be.true;
+
+    findByIdStub.restore();
+  });
+
+  it('should prevent applying twice', async () => {
+    const jobId = new mongoose.Types.ObjectId();
+    const employeeId = new mongoose.Types.ObjectId();
+
+    const job = {
+      _id: jobId,
+      employer: new mongoose.Types.ObjectId(),
+      applications: [{ applicant: employeeId }],
+      save: sinon.stub().resolvesThis()
+    };
+
+    const findByIdStub = sinon.stub(Job, 'findById').resolves(job);
+
+    const req = { params: { id: jobId }, user: { role: 'employee', _id: employeeId } };
+    const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+
+    await applyJob(req, res);
+
+    expect(res.status.calledWith(400)).to.be.true;
+    expect(res.json.calledWith({ message: 'You already applied for this job.' })).to.be.true;
+
+    findByIdStub.restore();
+  });
+
+  it('should return 403 if user is not employee', async () => {
+    const req = { params: { id: new mongoose.Types.ObjectId() }, user: { role: 'employer' } };
+    const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+
+    await applyJob(req, res);
+
+    expect(res.status.calledWith(403)).to.be.true;
+    expect(res.json.calledWith({ message: 'Only employees can apply for jobs.' })).to.be.true;
   });
 
 });

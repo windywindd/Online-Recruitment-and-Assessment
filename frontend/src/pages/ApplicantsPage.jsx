@@ -28,33 +28,31 @@ const ApplicantsPage = () => {
 
   const handleScheduleInterview = async (applicantId) => {
     try {
-        const payload = {
+      const payload = {
         ...formData[applicantId],
-        status: "interview", // ✅ force status change
-        };
+        status: "interview",
+      };
 
-        await axiosInstance.put(
+      await axiosInstance.put(
         `/api/jobs/${jobId}/applicants/${applicantId}/interview`,
         payload,
         { headers: { Authorization: `Bearer ${user.token}` } }
-        );
+      );
 
-        // ✅ update local state so UI shows immediately
-        setApplicants((prev) =>
+      setApplicants((prev) =>
         prev.map((app) =>
-            app.applicant._id === applicantId
+          app.applicant?._id === applicantId
             ? { ...app, status: "interview", ...payload }
             : app
         )
-        );
+      );
 
-        alert("Interview scheduled!");
+      alert("Interview scheduled!");
     } catch (error) {
-        console.error(error);
-        alert("Failed to schedule interview.");
+      console.error(error);
+      alert("Failed to schedule interview.");
     }
-    };
-
+  };
 
   if (loading) return <p>Loading applicants...</p>;
 
@@ -66,11 +64,11 @@ const ApplicantsPage = () => {
       ) : (
         <ul>
           {applicants.map((app) => (
-            <li key={app.applicant._id} className="border p-4 mb-4 rounded bg-white">
+            <li key={app.applicant?._id || Math.random()} className="border p-4 mb-4 rounded bg-white">
               <p>
-                <strong>{app.applicant.name}</strong> ({app.applicant.email})
+                <strong>{app.applicant?.name || "Unknown"}</strong> ({app.applicant?.email || "No email"})
               </p>
-              <p>Status: {app.status}</p>
+              <p>Status: {app.status || "Pending"}</p>
 
               {/* Schedule Interview */}
               {app.status !== "interview" && (
@@ -80,8 +78,8 @@ const ApplicantsPage = () => {
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        [app.applicant._id]: {
-                          ...prev[app.applicant._id],
+                        [app.applicant?._id]: {
+                          ...prev[app.applicant?._id],
                           interviewDate: e.target.value,
                         },
                       }))
@@ -94,8 +92,8 @@ const ApplicantsPage = () => {
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        [app.applicant._id]: {
-                          ...prev[app.applicant._id],
+                        [app.applicant?._id]: {
+                          ...prev[app.applicant?._id],
                           interviewLocation: e.target.value,
                         },
                       }))
@@ -107,8 +105,8 @@ const ApplicantsPage = () => {
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        [app.applicant._id]: {
-                          ...prev[app.applicant._id],
+                        [app.applicant?._id]: {
+                          ...prev[app.applicant?._id],
                           interviewDescription: e.target.value,
                         },
                       }))
@@ -116,7 +114,7 @@ const ApplicantsPage = () => {
                     className="border p-2 w-full"
                   />
                   <button
-                    onClick={() => handleScheduleInterview(app.applicant._id)}
+                    onClick={() => handleScheduleInterview(app.applicant?._id)}
                     className="bg-green-600 text-white px-4 py-2 rounded"
                   >
                     Schedule Interview
