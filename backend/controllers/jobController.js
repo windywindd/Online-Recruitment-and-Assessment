@@ -1,64 +1,98 @@
+// jobController.js
 const Job = require('../models/jobModel');
+const JobFacade = require('../services/JobFacade');
+const JobFactory = require('../services/JobFactory');
+const JobAdapter = require('../services/JobAdapter');
+const { withLogging } = require('../services/JobDecorator');
+const jobObserver = require('../services/JobObserver');
+const cloneJob = require('../services/JobPrototype');
+const JobProxy = require('../services/JobProxy');
+const logger = require('../services/Logger');
+const { JobFilterByDate, JobFilterByRole, JobContext } = require('../services/JobStrategy');
 
-// CREATE JOB (Employers only)
-exports.createJob = async (req, res) => {
+// =================== CREATE JOB (Employers only) ===================
+exports.createJob = withLogging(async (req, res) => {
   try {
     if (req.user.role !== 'employer') {
       return res.status(403).json({ message: 'Access denied. Only employers can post jobs.' });
     }
 
-    const { title, description } = req.body;
-    const employer = req.user._id;
+    const { title, description, type } = req.body;
 
     if (!title || !description) {
       return res.status(400).json({ message: 'Please provide title and description' });
     }
 
-    const newJob = new Job({ title, description, employer });
-    await newJob.save();
+    // Make sure employer exists
+    if (!req.user._id) {
+      return res.status(400).json({ message: 'Invalid user. Employer not found.' });
+    }
 
-    res.status(201).json(newJob);
+    // Factory Pattern
+    const jobData = JobFactory.createJob(type || 'full-time', {
+      title,
+      description,
+      employer: req.user._id,
+    });
+
+    // Adapter Pattern
+    const newJob = new Job(new JobAdapter(jobData).toJobModel());
+
+    // Facade Pattern
+    const savedJob = await JobFacade.create(newJob);
+
+    // Observer / Singleton Logger
+    jobObserver.emit('jobCreated', { employerEmail: req.user.email, jobTitle: title });
+    logger.log(`Job created by ${req.user._id}`);
+
+    res.status(201).json(savedJob);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: error.message });
   }
-};
+});
 
-// GET ALL JOBS (Everyone can view)
+// =================== GET ALL JOBS (Everyone) ===================
 exports.getJobs = async (req, res) => {
   try {
-    const jobs = await Job.find()
-      .populate('employer', 'name email role')
-      .populate('applications.applicant', 'name email'); 
+    let jobs = await JobFacade.getAll();
+
+    // Strategy Pattern: sort/filter jobs dynamically
+    const context = new JobContext(new JobFilterByDate()); // example: by date
+    jobs = context.execute(jobs);
+
+    // Proxy Pattern: hide sensitive info
+    jobs = jobs.map(job => JobProxy(job, req.user?.role));
+
     res.json(jobs);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// DELETE JOB (Employer only, their own jobs)
-exports.deleteJob = async (req, res) => {
+// =================== DELETE JOB (Employer only) ===================
+exports.deleteJob = withLogging(async (req, res) => {
   try {
     const job = await Job.findById(req.params.id).populate('employer', 'name role');
     if (!job) return res.status(404).json({ message: 'Job not found' });
-
-    if (!job.employer) {
-      return res.status(400).json({ message: 'Job has no employer assigned' });
-    }
 
     if (req.user.role !== 'employer' || job.employer._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied. You cannot delete this job.' });
     }
 
-    await job.deleteOne();
+    await JobFacade.deleteById(req.params.id);
+
+    // Observer Pattern: notify subscribers if needed
+    jobObserver.emit('jobDeleted', { employerEmail: job.employer.email, jobTitle: job.title });
+
     res.json({ message: 'Job deleted successfully' });
   } catch (error) {
-    console.error('Delete job error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: error.message });
   }
-};
+});
 
-// UPDATE JOB (Employer only, their own jobs)
-exports.updateJob = async (req, res) => {
+// =================== UPDATE JOB (Employer only) ===================
+exports.updateJob = withLogging(async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
@@ -72,14 +106,15 @@ exports.updateJob = async (req, res) => {
     job.description = description || job.description;
 
     await job.save();
+    logger.log(`Job updated by ${req.user._id}`);
+
     res.json({ message: 'Job updated successfully', job });
   } catch (error) {
-    console.error('Update job error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: error.message });
   }
-};
+});
 
-// APPLY TO A JOB (Employees only)
+// =================== APPLY TO JOB (Employees only) ===================
 exports.applyJob = async (req, res) => {
   try {
     if (req.user.role !== 'employee') {
@@ -94,7 +129,7 @@ exports.applyJob = async (req, res) => {
     }
 
     const alreadyApplied = job.applications.some(
-      (app) => app.applicant.toString() === req.user._id.toString()
+      app => app.applicant.toString() === req.user._id.toString()
     );
     if (alreadyApplied) {
       return res.status(400).json({ message: 'You already applied for this job.' });
@@ -103,14 +138,16 @@ exports.applyJob = async (req, res) => {
     job.applications.push({ applicant: req.user._id });
     await job.save();
 
+    // Observer Pattern: notify employer
+    jobObserver.emit('jobApplied', { employerEmail: job.employer.email, jobTitle: job.title });
+
     res.json({ message: 'Applied successfully!' });
   } catch (error) {
-    console.error('Apply job error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// GET APPLICANTS FOR A JOB (Employer only)
+// =================== GET APPLICANTS ===================
 exports.getApplicants = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id).populate('applications.applicant', 'name email');
@@ -122,12 +159,11 @@ exports.getApplicants = async (req, res) => {
 
     res.json(job.applications);
   } catch (error) {
-    console.error('Get applicants error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// SCHEDULE INTERVIEW (Employer schedules applicant interview)
+// =================== SCHEDULE INTERVIEW ===================
 exports.scheduleInterview = async (req, res) => {
   try {
     const { jobId, applicantId } = req.params;
@@ -137,11 +173,9 @@ exports.scheduleInterview = async (req, res) => {
     if (!job) return res.status(404).json({ message: "Job not found" });
 
     const application = job.applications.find(
-      (app) => app.applicant.toString() === applicantId
+      app => app.applicant.toString() === applicantId
     );
-    if (!application) {
-      return res.status(404).json({ message: "Applicant not found" });
-    }
+    if (!application) return res.status(404).json({ message: "Applicant not found" });
 
     application.status = "interview";
     application.interviewDate = interviewDate;
@@ -152,11 +186,11 @@ exports.scheduleInterview = async (req, res) => {
 
     res.json({ message: "Interview scheduled", application });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Failed to schedule interview" });
   }
 };
 
+// =================== GET MY INTERVIEWS ===================
 exports.getMyInterviews = async (req, res) => {
   try {
     if (req.user.role !== "employee") {
@@ -181,7 +215,8 @@ exports.getMyInterviews = async (req, res) => {
 
     res.json(interviews);
   } catch (error) {
-    console.error("Get interviews error:", error);
     res.status(500).json({ message: "Failed to fetch interviews" });
   }
 };
+
+// console.log('Job data before saving:', newJob);

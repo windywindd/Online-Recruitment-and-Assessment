@@ -11,23 +11,22 @@ const JobList = () => {
   const [editingJobId, setEditingJobId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
+  const [sortOption, setSortOption] = useState('date'); // ✅ added sorting option
 
   useEffect(() => {
-    const fetchJobs = async () => {
+    const fetchJobs = async (sort = 'date') => {
       try {
-        const { data } = await axiosInstance.get('/api/jobs');
+        const { data } = await axiosInstance.get(`/api/jobs?sort=${sort}`);
         setJobs(data);
       } catch (error) {
         console.error('Error fetching jobs:', error);
       }
     };
-    fetchJobs();
-  }, []);
+    fetchJobs(sortOption);
+  }, [sortOption]);
 
-  // Apply for a job
   const handleApply = async (jobId) => {
     if (user.role !== 'employee') return;
-
     setLoadingJobId(jobId);
     try {
       await axiosInstance.post(
@@ -35,14 +34,11 @@ const JobList = () => {
         {},
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
-
-      // update local state to reflect application
       setJobs(jobs.map(job =>
         job._id === jobId
           ? { ...job, applications: [...(job.applications || []), { applicant: { _id: user.id, name: user.name, email: user.email } }] }
           : job
       ));
-
       alert('Applied successfully!');
     } catch (error) {
       console.error(error);
@@ -52,11 +48,9 @@ const JobList = () => {
     }
   };
 
-  // Delete a job
   const handleDelete = async (jobId) => {
     if (user.role !== 'employer') return;
     if (!window.confirm('Are you sure you want to delete this job?')) return;
-
     setLoadingJobId(jobId);
     try {
       await axiosInstance.delete(`/api/jobs/${jobId}`, {
@@ -72,12 +66,12 @@ const JobList = () => {
     }
   };
 
-  // Edit job
   const handleEditClick = (job) => {
     setEditingJobId(job._id);
     setEditingTitle(job.title);
     setEditingDescription(job.description);
   };
+
   const handleSaveEdit = async (jobId) => {
     try {
       await axiosInstance.put(
@@ -85,11 +79,9 @@ const JobList = () => {
         { title: editingTitle, description: editingDescription },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
-
       setJobs(jobs.map(job =>
         job._id === jobId ? { ...job, title: editingTitle, description: editingDescription } : job
       ));
-
       setEditingJobId(null);
     } catch (error) {
       console.error(error);
@@ -98,9 +90,24 @@ const JobList = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto mt-10 bg-gray-100">
-      <h2 className="text-2xl font-bold p-2 mb-4">Available Jobs</h2>
+    <div className="max-w-2xl mx-auto mt-10 bg-gray-100 p-4 rounded">
+      <h2 className="text-2xl font-bold mb-4">Available Jobs</h2>
+
+      {/* Sorting Dropdown */}
+      <div className="mb-4">
+        <label className="mr-2 font-semibold">Sort by:</label>
+        <select
+          value={sortOption}
+          onChange={(e) => setSortOption(e.target.value)}
+          className="p-2 border rounded"
+        >
+          <option value="date">Date</option>
+          <option value="role">Role</option>
+        </select>
+      </div>
+
       {jobs.length === 0 && <p>No jobs available</p>}
+
       <ul>
         {jobs.map((job) => {
           const alreadyApplied =
@@ -108,7 +115,7 @@ const JobList = () => {
             job.applications?.some((app) => app.applicant?._id === user.id);
 
           return (
-            <li key={job._id} className="border p-4 mb-4 rounded shadow">
+            <li key={job._id} className="border p-4 mb-4 rounded shadow bg-white">
               {editingJobId === job._id ? (
                 <>
                   <input
@@ -141,11 +148,11 @@ const JobList = () => {
                 <>
                   <h3 className="text-xl font-semibold">{job.title}</h3>
                   <p>{job.description}</p>
+                  <p>Type: {job.type || 'Full-Time'}</p> {/* ✅ show job type */}
                   <small>Posted by: {job.employer?.name || 'Unknown'}</small>
 
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-2 flex gap-2 flex-wrap">
                     {/* Employee apply */}
-                    {/* Employee actions */}
                     {user.role === 'employee' && (
                       <>
                         <button
