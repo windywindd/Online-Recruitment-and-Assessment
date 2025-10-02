@@ -156,7 +156,9 @@ exports.applyJob = async (req, res) => {
 // =================== GET APPLICANTS ===================
 exports.getApplicants = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).populate('applications.applicant', 'name email');
+    const job = await Job.findById(req.params.id)
+      .populate('applications.applicant'); // add extra fields
+
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
     if (job.employer.toString() !== req.user._id.toString()) {
@@ -168,6 +170,7 @@ exports.getApplicants = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // =================== SCHEDULE INTERVIEW ===================
 exports.scheduleInterview = async (req, res) => {

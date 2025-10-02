@@ -64,11 +64,13 @@ const ApplicantsPage = () => {
       ) : (
         <ul>
           {applicants.map((app) => (
-            <li key={app.applicant?._id || Math.random()} className="border p-4 mb-4 rounded bg-white">
-              <p>
-                <strong>{app.applicant?.name || "Unknown"}</strong> ({app.applicant?.email || "No email"})
-              </p>
-              <p>Status: {app.status || "Pending"}</p>
+            <li
+              key={app.applicant?._id || Math.random()}
+              className="border p-4 mb-4 rounded bg-white"
+            >
+              <h3 className="font-semibold">{app.applicant?.name || "Unknown"}</h3>
+              <p><strong>Email:</strong> {app.applicant?.email || "No email"}</p>
+              <p><strong>Status:</strong> {app.status || "Pending"}</p>
 
               {/* Schedule Interview */}
               {app.status !== "interview" && (
