@@ -10,20 +10,20 @@ const JobList = () => {
   const [loadingJobId, setLoadingJobId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [editingDescription, setEditingDescription] = useState('');
-  const [sortOption, setSortOption] = useState('date'); // ✅ added sorting option
+  const [editingDescription, setEditingDescription] = useState(''); 
+  const [editingType, setEditingType] = useState('');
 
   useEffect(() => {
-    const fetchJobs = async (sort = 'date') => {
+    const fetchJobs = async () => {
       try {
-        const { data } = await axiosInstance.get(`/api/jobs?sort=${sort}`);
+        const { data } = await axiosInstance.get('/api/jobs');
         setJobs(data);
       } catch (error) {
         console.error('Error fetching jobs:', error);
       }
     };
-    fetchJobs(sortOption);
-  }, [sortOption]);
+    fetchJobs();
+  }, []);
 
   const handleApply = async (jobId) => {
     if (user.role !== 'employee') return;
@@ -70,17 +70,18 @@ const JobList = () => {
     setEditingJobId(job._id);
     setEditingTitle(job.title);
     setEditingDescription(job.description);
+    setEditingType(job.type || 'Fulltime');
   };
 
   const handleSaveEdit = async (jobId) => {
     try {
       await axiosInstance.put(
         `/api/jobs/${jobId}`,
-        { title: editingTitle, description: editingDescription },
+        { title: editingTitle, description: editingDescription, type: editingType },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
       setJobs(jobs.map(job =>
-        job._id === jobId ? { ...job, title: editingTitle, description: editingDescription } : job
+        job._id === jobId ? { ...job, title: editingTitle, description: editingDescription, type: editingType } : job
       ));
       setEditingJobId(null);
     } catch (error) {
@@ -94,17 +95,6 @@ const JobList = () => {
       <h2 className="text-2xl font-bold mb-4">Available Jobs</h2>
 
       {/* Sorting Dropdown */}
-      <div className="mb-4">
-        <label className="mr-2 font-semibold">Sort by:</label>
-        <select
-          value={sortOption}
-          onChange={(e) => setSortOption(e.target.value)}
-          className="p-2 border rounded"
-        >
-          <option value="date">Date</option>
-          <option value="role">Role</option>
-        </select>
-      </div>
 
       {jobs.length === 0 && <p>No jobs available</p>}
 
@@ -129,6 +119,14 @@ const JobList = () => {
                     onChange={(e) => setEditingDescription(e.target.value)}
                     className="w-full mb-2 p-2 border rounded"
                   />
+                  <select
+                    value={editingType}
+                    onChange={(e) => setEditingType(e.target.value)}
+                    className="w-full mb-2 p-2 border rounded"
+                  >
+                    <option value="full-time">Full-Time</option>
+                    <option value="part-time">Part-Time</option>
+                  </select>
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleSaveEdit(job._id)}
@@ -146,9 +144,9 @@ const JobList = () => {
                 </>
               ) : (
                 <>
-                  <h3 className="text-xl font-semibold">{job.title}</h3>
-                  <p>{job.description}</p>
-                  <p>Type: {job.type || 'Full-Time'}</p> {/* ✅ show job type */}
+                  <h1 className="text-xl font-semibold">{job.title}</h1>
+                  <h2>Job description: {job.description}</h2>
+                  <p>Type: {job.type || 'Full-Time'}</p>
                   <small>Posted by: {job.employer?.name || 'Unknown'}</small>
 
                   <div className="mt-2 flex gap-2 flex-wrap">
