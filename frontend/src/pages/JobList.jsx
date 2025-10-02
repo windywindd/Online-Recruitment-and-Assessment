@@ -168,14 +168,7 @@ const JobList = () => {
                             ? 'Applying...'
                             : 'Apply'}
                         </button>
-                        {alreadyApplied && (
-                          <button
-                            onClick={() => navigate(`/my-interviews`)}
-                            className="bg-purple-600 text-white p-2 rounded"
-                          >
-                            View Interview Details
-                          </button>
-                        )}
+                        {/* ######## */}
                       </>
                     )}
 
@@ -209,6 +202,18 @@ const JobList = () => {
             </li>
           );
         })}
+        {/* ######## */}
+        {user.role === 'employee' && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => navigate('/my-interviews')}
+              className="bg-purple-600 text-white px-6 py-2 rounded"
+            >
+              View My Interview Details
+            </button>
+          </div>
+        )}
+
       </ul>
     </div>
   );
