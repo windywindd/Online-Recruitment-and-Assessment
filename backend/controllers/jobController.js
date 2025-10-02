@@ -1,14 +1,14 @@
 // jobController.js
 const Job = require('../models/jobModel');
-const JobFacade = require('../services/JobFacade');
-const JobFactory = require('../services/JobFactory');
-const JobAdapter = require('../services/JobAdapter');
-const { withLogging } = require('../services/JobDecorator');
-const jobObserver = require('../services/JobObserver');
-const cloneJob = require('../services/JobPrototype');
-const JobProxy = require('../services/JobProxy');
+const JobFacade = require('../services/Facade');
+const JobFactory = require('../services/Factory');
+const JobAdapter = require('../services/Adapter');
+const { withLogging } = require('../services/Decorator');
+const jobObserver = require('../services/Observer');
+const cloneJob = require('../services/Prototype');
+const JobProxy = require('../services/Proxy');
 const logger = require('../services/Logger');
-const { JobFilterByDate, JobFilterByRole, JobContext } = require('../services/JobStrategy');
+const { JobFilterByDate, JobFilterByRole, JobContext } = require('../services/Strategy');
 
 // =================== CREATE JOB (Employers only) ===================
 exports.createJob = withLogging(async (req, res) => {

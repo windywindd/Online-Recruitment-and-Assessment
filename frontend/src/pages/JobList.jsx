@@ -209,7 +209,7 @@ const JobList = () => {
               onClick={() => navigate('/my-interviews')}
               className="bg-purple-600 text-white px-6 py-2 rounded"
             >
-              View My Interview Details
+              View All My Interview Details
             </button>
           </div>
         )}
