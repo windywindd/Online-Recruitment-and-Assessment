@@ -9,6 +9,8 @@ const {
   loginUser,
   getProfile,
   updateUserProfile,
+  getAllUsers,
+  deleteUser
 } = require("../controllers/authController");
 
 const { expect } = chai;
@@ -32,10 +34,7 @@ describe("User Controller Tests", () => {
       const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
 
       sinon.stub(User, "findOne").resolves(null);
-      sinon
-        .stub(User, "create")
-        .resolves({ id: new mongoose.Types.ObjectId(), ...req.body });
-
+      sinon.stub(User, "create").resolves({ id: new mongoose.Types.ObjectId(), ...req.body });
       sinon.stub(jwt, "sign").returns("fake-token");
 
       await registerUser(req, res);
@@ -43,8 +42,8 @@ describe("User Controller Tests", () => {
       expect(res.status.calledWith(201)).to.be.true;
       expect(
         res.json.calledWithMatch({
-          token: "fake-token",
           email: "test@example.com",
+          token: "fake-token",
         })
       ).to.be.true;
     });
@@ -58,8 +57,7 @@ describe("User Controller Tests", () => {
       await registerUser(req, res);
 
       expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWith({ message: "User already exists" })).to.be
-        .true;
+      expect(res.json.calledWith({ message: "User already exists" })).to.be.true;
     });
 
     it("should return 500 on error", async () => {
@@ -83,30 +81,21 @@ describe("User Controller Tests", () => {
       const req = { body: { email: "test@example.com", password } };
       const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
 
-      sinon
-        .stub(User, "findOne")
-        .resolves({
-          id: new mongoose.Types.ObjectId(),
-          email: req.body.email,
-          password: hashedPassword,
-          role: "employee",
-        });
+      sinon.stub(User, "findOne").resolves({
+        id: new mongoose.Types.ObjectId(),
+        email: req.body.email,
+        password: hashedPassword,
+        role: "employee",
+      });
       sinon.stub(jwt, "sign").returns("fake-token");
 
       await loginUser(req, res);
 
-      expect(
-        res.json.calledWithMatch({
-          token: "fake-token",
-          email: "test@example.com",
-        })
-      ).to.be.true;
+      expect(res.json.calledWithMatch({ email: "test@example.com", token: "fake-token" })).to.be.true;
     });
 
     it("should return 401 for invalid credentials", async () => {
-      const req = {
-        body: { email: "wrong@example.com", password: "password" },
-      };
+      const req = { body: { email: "wrong@example.com", password: "password" } };
       const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
 
       sinon.stub(User, "findOne").resolves(null);
@@ -114,8 +103,7 @@ describe("User Controller Tests", () => {
       await loginUser(req, res);
 
       expect(res.status.calledWith(401)).to.be.true;
-      expect(res.json.calledWith({ message: "Invalid email or password" })).to
-        .be.true;
+      expect(res.json.calledWith({ message: "Invalid email or password" })).to.be.true;
     });
 
     it("should return 500 on error", async () => {
@@ -134,23 +122,29 @@ describe("User Controller Tests", () => {
   // ---------------- GET PROFILE ----------------
   describe("getProfile", () => {
     it("should return user profile", async () => {
-      const req = { user: { id: new mongoose.Types.ObjectId() } };
+      const req = { user: { id: new mongoose.Types.ObjectId(), role: "employee" } };
       const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
 
-      sinon
-        .stub(User, "findById")
-        .resolves({
-          id: req.user.id,
-          name: "Test",
-          email: "test@example.com",
-          role: "employee",
-        });
+      sinon.stub(User, "findById").resolves({
+        id: req.user.id,
+        name: "Test",
+        email: "test@example.com",
+        role: "employee",
+        description: "Test description",
+        address: "Test address"
+      });
 
       await getProfile(req, res);
 
       expect(res.status.calledWith(200)).to.be.true;
-      expect(res.json.calledWithMatch({ email: "test@example.com" })).to.be
-        .true;
+      expect(res.json.calledWithMatch({
+        id: req.user.id,
+        name: "Test",
+        email: "test@example.com",
+        role: "employee",
+        description: "Test description",
+        address: "Test address"
+      })).to.be.true;
     });
 
     it("should return 404 if user not found", async () => {
@@ -174,7 +168,7 @@ describe("User Controller Tests", () => {
       await getProfile(req, res);
 
       expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: "Server error" })).to.be.true;
+      expect(res.json.calledWithMatch({ message: "DB Error" })).to.be.true;
     });
   });
 
@@ -182,22 +176,26 @@ describe("User Controller Tests", () => {
   describe("updateUserProfile", () => {
     it("should update user profile successfully", async () => {
       const req = {
-        user: { id: new mongoose.Types.ObjectId() },
-        body: { name: "Updated" },
+        user: { id: new mongoose.Types.ObjectId(), role: "admin" }, 
+        body: { name: "Updated", role: "employer" },
       };
       const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
 
-      const saveStub = sinon.stub().resolvesThis();
-      sinon
-        .stub(User, "findById")
-        .resolves({ id: req.user.id, name: "Old", save: saveStub });
+      const saveStub = sinon.stub().resolves({
+        id: req.user.id,
+        name: "Updated",
+        email: "test@example.com",
+        description: "Test description",
+        address: "Test address",
+        role: "employer"
+      });
+      sinon.stub(User, "findById").resolves({ id: req.user.id, name: "Old", save: saveStub });
 
       sinon.stub(jwt, "sign").returns("fake-token");
 
       await updateUserProfile(req, res);
 
-      expect(res.json.calledWithMatch({ name: "Updated", token: "fake-token" }))
-        .to.be.true;
+      expect(res.json.calledWithMatch({ name: "Updated", role: "employer", token: "fake-token" })).to.be.true;
     });
 
     it("should return 404 if user not found", async () => {
@@ -219,6 +217,71 @@ describe("User Controller Tests", () => {
       sinon.stub(User, "findById").throws(new Error("DB Error"));
 
       await updateUserProfile(req, res);
+
+      expect(res.status.calledWith(500)).to.be.true;
+      expect(res.json.calledWithMatch({ message: "DB Error" })).to.be.true;
+    });
+  });
+
+  // ---------------- ADMIN: Get All Users ----------------
+  describe("getAllUsers", () => {
+    it("should return all users", async () => {
+      const req = {};
+      const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+
+      sinon.stub(User, "find").resolves([{ id: 1, name: "User1" }, { id: 2, name: "User2" }]);
+
+      await getAllUsers(req, res);
+
+      expect(res.json.calledWithMatch([{ id: 1, name: "User1" }, { id: 2, name: "User2" }])).to.be.true;
+    });
+
+    it("should return 500 on error", async () => {
+      const req = {};
+      const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+
+      sinon.stub(User, "find").throws(new Error("DB Error"));
+
+      await getAllUsers(req, res);
+
+      expect(res.status.calledWith(500)).to.be.true;
+      expect(res.json.calledWithMatch({ message: "DB Error" })).to.be.true;
+    });
+  });
+
+  // ---------------- ADMIN: Delete User ----------------
+  describe("deleteUser", () => {
+    it("should delete user successfully", async () => {
+      const req = { params: { id: "123" } };
+      const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+      const removeStub = sinon.stub().resolves();
+
+      sinon.stub(User, "findById").resolves({ remove: removeStub });
+
+      await deleteUser(req, res);
+
+      expect(res.json.calledWithMatch({ message: "User deleted" })).to.be.true;
+    });
+
+    it("should return 404 if user not found", async () => {
+      const req = { params: { id: "123" } };
+      const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+
+      sinon.stub(User, "findById").resolves(null);
+
+      await deleteUser(req, res);
+
+      expect(res.status.calledWith(404)).to.be.true;
+      expect(res.json.calledWith({ message: "User not found" })).to.be.true;
+    });
+
+    it("should return 500 on error", async () => {
+      const req = { params: { id: "123" } };
+      const res = { status: sinon.stub().returnsThis(), json: sinon.spy() };
+
+      sinon.stub(User, "findById").throws(new Error("DB Error"));
+
+      await deleteUser(req, res);
 
       expect(res.status.calledWith(500)).to.be.true;
       expect(res.json.calledWithMatch({ message: "DB Error" })).to.be.true;
