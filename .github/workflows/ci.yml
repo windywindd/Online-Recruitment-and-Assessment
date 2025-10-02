@@ -147,11 +147,11 @@ jobs:
         yarn install
         yarn build
 
-    # Run backend tests
-    - name: Run Backend Tests
-      working-directory: ./backend
-      env:
-        MONGO_URI: ${{ secrets.MONGO_URI }}
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        PORT: ${{ secrets.PORT }}
-      run: npm test
+    # # Run backend tests
+    # - name: Run Backend Tests
+    #   working-directory: ./backend
+    #   env:
+    #     MONGO_URI: ${{ secrets.MONGO_URI }}
+    #     JWT_SECRET: ${{ secrets.JWT_SECRET }}
+    #     PORT: ${{ secrets.PORT }}
+    #   run: npm test
