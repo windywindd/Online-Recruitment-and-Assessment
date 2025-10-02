@@ -14,6 +14,13 @@ const jobSchema = new mongoose.Schema({
   employer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   applications: [applicationSchema],
   createdAt: { type: Date, default: Date.now },
+
+  type:{
+    type: String,
+    enum: ["full-time", "part-time"],
+    default: "full-time",
+    required: true
+  },
 });
 
 module.exports = mongoose.model("Job", jobSchema);

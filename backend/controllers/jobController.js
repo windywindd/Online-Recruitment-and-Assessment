@@ -105,9 +105,11 @@ exports.updateJob = withLogging(async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You cannot edit this job.' });
     }
 
-    const { title, description } = req.body;
-    job.title = title || job.title;
-    job.description = description || job.description;
+    const { title, description,type } = req.body;
+    job.title = title ?? job.title;
+    job.description = description ?? job.description;
+    if(type) job.type = type;
+
 
     await job.save();
     logger.log(`Job updated by ${req.user._id}`);
