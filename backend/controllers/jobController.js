@@ -55,20 +55,24 @@ exports.createJob = withLogging(async (req, res) => {
 // =================== GET ALL JOBS (Everyone) ===================
 exports.getJobs = async (req, res) => {
   try {
-    let jobs = await JobFacade.getAll();
+    const sort = req.query.sort || 'date';
+    const sortOption = sort === 'role' ? { title: 1 } : { createdAt: -1 };
 
-    // Strategy Pattern: sort/filter jobs dynamically
-    const context = new JobContext(new JobFilterByDate()); // example: by date
-    jobs = context.execute(jobs);
-
-    // Proxy Pattern: hide sensitive info
-    jobs = jobs.map(job => JobProxy(job, req.user?.role));
+    const jobs = await Job.find()
+      .populate({
+        path: 'applications',
+        populate: { path: 'applicant', select: 'name email' }
+      })
+      .populate('employer', 'name email')
+      .sort(sortOption);
 
     res.json(jobs);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 // =================== DELETE JOB (Employer only) ===================
 exports.deleteJob = withLogging(async (req, res) => {
